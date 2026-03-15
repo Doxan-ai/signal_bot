@@ -1,2 +1,5 @@
 pyTelegramBotAPI
-tradingview-ta
+yfinance
+pandas_ta
+pandas
+
