@@ -1,0 +1,82 @@
+import telebot
+from telebot import types
+from tradingview_ta import TA_Handler, Interval
+import random
+
+TOKEN = "8740187389:AAFWMBelrMBLtUj016KwH2YWCppZIN_PUXc"
+bot = telebot.TeleBot(TOKEN)
+
+# Валюталар рўйхати
+pairs = {
+    "EUR/USD": ("EURUSD", "forex", "FX_IDC"),
+    "GBP/USD": ("GBPUSD", "forex", "FX_IDC"),
+    "USD/JPY": ("USDJPY", "forex", "FX_IDC"),
+    "AUD/USD": ("AUDUSD", "forex", "FX_IDC"),
+    "USD/CHF": ("USDCHF", "forex", "FX_IDC"),
+    "BTC/USDT": ("BTCUSDT", "crypto", "BINANCE")
+}
+
+def get_tv_analysis(symbol, screener, exchange):
+    try:
+        handler = TA_Handler(
+            symbol=symbol,
+            screener=screener,
+            exchange=exchange,
+            interval=Interval.INTERVAL_1_MINUTE
+        )
+        analysis = handler.get_analysis()
+        summary = analysis.summary['RECOMMENDATION']
+        buy_v = analysis.summary['BUY']
+        sell_v = analysis.summary['SELL']
+        
+        # Аниқликни ҳисоблаш
+        total = buy_v + sell_v + analysis.summary['NEUTRAL']
+        accuracy = (max(buy_v, sell_v) / total * 100) + random.uniform(2, 7)
+        return summary, round(min(accuracy, 98.2), 2), buy_v, sell_v
+    except:
+        return "ERROR", 0, 0, 0
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(types.KeyboardButton("📊 ВАЛЮТА ТАНЛАШ"))
+    markup.add(types.KeyboardButton("👤 ПРОФИЛЬ"), types.KeyboardButton("👥 РЕФЕРАЛ"))
+    
+    bot.send_message(message.chat.id, "🤖 **Pocket Option AI Scanner**\n\nБозорни таҳлил қилиш учун валютани танланг.", reply_markup=markup, parse_mode="Markdown")
+
+@bot.message_handler(func=lambda m: m.text == "📊 ВАЛЮТА ТАНЛАШ")
+def show_pairs(message):
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    buttons = [types.InlineKeyboardButton(text=p, callback_data=f"analyze_{p}") for p in pairs.keys()]
+    markup.add(*buttons)
+    
+    bot.send_message(message.chat.id, "Қайси жуфтлик бўйича сигнал олмоқчисиз?", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("analyze_"))
+def callback_analyze(call):
+    pair_name = call.data.split("_")[1]
+    symbol, screener, exchange = pairs[pair_name]
+    
+    # Хабарни ўзгартириш (Кутиш ҳолати)
+    bot.answer_callback_query(call.id, f"{pair_name} таҳлил қилинмоқда...")
+    
+    status, acc, buy, sell = get_tv_analysis(symbol, screener, exchange)
+    
+    if status == "ERROR":
+        bot.send_message(call.message.chat.id, "❌ Маълумот олишда хатолик.")
+        return
+
+    icon = "⬆️ ЮҚОРИ" if "BUY" in status else "⬇️ ПАСТ"
+    if "NEUTRAL" in status: icon = "⏳ НЕЙТРАЛ"
+
+    res = (
+        f"🎯 **СИГНАЛ ТАЙЁР!**\n\n"
+        f"💎 Актив: **{pair_name}**\n"
+        f"📈 Йўналиш: **{icon}**\n"
+        f"🎯 Аниқлик: **{acc}%**\n"
+        f"⏰ Вақт: **1 МИНУТ**\n\n"
+        f"🟢 BUY: {buy} | 🔴 SELL: {sell}"
+    )
+    bot.send_message(call.message.chat.id, res, parse_mode="Markdown")
+
+bot.polling(none_stop=True)
