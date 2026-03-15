@@ -3,7 +3,8 @@ from telebot import types
 from tradingview_ta import TA_Handler, Interval
 import random
 
-TOKEN = "8740187389:AAFWMBelrMBLtUj016KwH2YWCppZIN_PUXc"
+# Сизнинг Телеграм бот токенингиз
+TOKEN = '8740187389:AAFWMBelrMBLtUj016KwH2YWCppZIN_PUXc'
 bot = telebot.TeleBot(TOKEN)
 
 # Валюталар рўйхати
